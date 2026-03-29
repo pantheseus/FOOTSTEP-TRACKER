@@ -1,0 +1,9 @@
+import app from './app';
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Footstep API is running!`);
+  console.log(`🔗 Local network access: http://192.168.138.125:${PORT}`);
+  console.log(`🏠 Local machine access: http://localhost:${PORT}`);
+});

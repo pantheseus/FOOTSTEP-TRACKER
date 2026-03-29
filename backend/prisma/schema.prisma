@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id       String     @id @default(uuid()) @db.Uuid
+  name          String
+  email         String     @unique
+  password_hash String
+  created_at    DateTime   @default(now())
+  
+  profile       UserProfile?
+  steps         DailyStep[]
+  goals         Goal[]
+  reminders     Reminder[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  profile_id String   @id @default(uuid()) @db.Uuid
+  user_id    String   @unique @db.Uuid
+  age        Int?
+  gender     String?
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [user_id])
+
+  @@map("user_profiles")
+}
+
+model DailyStep {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  date       DateTime @db.Date
+  step_count Int      @default(0)
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [user_id])
+
+  @@unique([user_id, date])
+  @@map("steps_daily")
+}
+
+model Goal {
+  goal_id    String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  daily_goal Int
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [user_id])
+
+  @@map("goals")
+}
+
+model Reminder {
+  reminder_id   String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  reminder_time String
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  user          User     @relation(fields: [user_id], references: [user_id])
+
+  @@map("reminders")
+}
