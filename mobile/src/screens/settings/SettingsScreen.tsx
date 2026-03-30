@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { Colors, Typography } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
-import { User, LogOut, ChevronLeft, Shield, Bell, CircleHelp } from 'lucide-react-native';
+import { User, LogOut, ChevronLeft, Shield, Bell, CircleHelp, Target } from 'lucide-react-native';
+import { Alert } from 'react-native';
 
 const SettingsScreen = ({ navigation }: any) => {
   const { user, logout } = useAuth();
@@ -39,19 +40,41 @@ const SettingsScreen = ({ navigation }: any) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
-            <SettingItem icon={User} label="Personal Information" />
+            <SettingItem 
+              icon={User} 
+              label="Personal Information" 
+              onPress={() => navigation.navigate("PersonalInformation")}
+            />
             <View style={styles.divider} />
-            <SettingItem icon={Bell} label="Notifications" />
+            <SettingItem 
+              icon={Target} 
+              label="Step Goal" 
+              onPress={() => navigation.navigate("GoalSetting")}
+            />
             <View style={styles.divider} />
-            <SettingItem icon={Shield} label="Privacy & Security" />
+            <SettingItem 
+              icon={Bell} 
+              label="Notifications" 
+              onPress={() => navigation.navigate("NotificationSettings")}
+            />
+            <View style={styles.divider} />
+            <SettingItem 
+              icon={Shield} 
+              label="Privacy & Security" 
+              onPress={() => navigation.navigate("SecuritySettings")}
+            />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <div style={styles.card}>
-            <SettingItem icon={CircleHelp} label="Help Center" />
-          </div>
+          <View style={styles.card}>
+            <SettingItem 
+              icon={CircleHelp} 
+              label="Help Center" 
+              onPress={() => navigation.navigate("HelpCenter")}
+            />
+          </View>
         </View>
 
         <View style={styles.section}>
