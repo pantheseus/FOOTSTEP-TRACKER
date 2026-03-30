@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, D
 import { Colors, Typography } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import client from '../../api/client';
-import { Footprints, Target, Flame, TrendingUp, Settings, ChevronRight, Activity } from 'lucide-react-native';
+import { Footprints, Target, Flame, TrendingUp, Settings, ChevronRight, Activity, Play, Square, MapPin, Clock } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Pedometer } from 'expo-sensors';
+import { registerBackgroundSync } from '../../services/BackgroundSyncService';
 
 const { width } = Dimensions.get('window');
 
@@ -18,6 +19,9 @@ const DashboardScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [isPedometerAvailable, setIsPedometerAvailable] = useState('checking');
   const [lastSavedSteps, setLastSavedSteps] = useState(0);
+  const [isTracking, setIsTracking] = useState(false);
+  const [activeTime, setActiveTime] = useState(0); // in seconds
+  const [sessionSteps, setSessionSteps] = useState(0);
 
   const fetchData = async () => {
     try {
@@ -91,6 +95,9 @@ const DashboardScreen = ({ navigation }: any) => {
         setStepsToday(latest.steps);
       }, 30000);
 
+      // 4. Register Background Sync
+      registerBackgroundSync();
+
       return () => {
         clearInterval(interval);
       };
@@ -102,6 +109,36 @@ const DashboardScreen = ({ navigation }: any) => {
       if (subscription) subscription.remove();
     };
   }, []);
+
+  // Session Timer & Tracking Logic
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    let sessionSubscription: any = null;
+
+    if (isTracking) {
+      // Start Timer
+      timer = setInterval(() => {
+        setActiveTime((prev) => prev + 1);
+      }, 1000);
+
+      // Start Session Step Tracking
+      const startSession = async () => {
+        sessionSubscription = Pedometer.watchStepCount((result) => {
+          setSessionSteps(result.steps);
+        });
+      };
+      startSession();
+    } else {
+      if (timer) clearInterval(timer);
+      if (sessionSubscription) sessionSubscription.remove();
+      // We don't reset sessionSteps/activeTime here so user can see their last session stats
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+      if (sessionSubscription) sessionSubscription.remove();
+    };
+  }, [isTracking]);
 
   // Auto-sync to backend every 100 new steps
   useEffect(() => {
@@ -128,6 +165,24 @@ const DashboardScreen = ({ navigation }: any) => {
 
   const progress = Math.min((stepsToday / dailyGoal) * 100, 100);
   const calories = Math.round(stepsToday * 0.04); // Rough estimate: 0.04 kcal per step
+  const distance = (stepsToday * 0.000762).toFixed(2); // Stride length 0.762m -> km
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const toggleTracking = () => {
+    if (!isTracking) {
+      setSessionSteps(0);
+      setActiveTime(0);
+      setIsTracking(true);
+    } else {
+      setIsTracking(false);
+      Alert.alert("Session Finished", `You walked ${sessionSteps} steps in ${formatTime(activeTime)}!`);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -145,19 +200,42 @@ const DashboardScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* Central Progress Circle (Simplified for MVP) */}
+        {/* Central Progress Circle */}
         <View style={styles.progressContainer}>
-          <View style={styles.progressRing}>
+          <View style={[styles.progressRing, isTracking && styles.trackingRing]}>
             <View style={[styles.progressBackground, { height: `${progress}%` }]} />
             <View style={styles.progressContent}>
-              <Footprints size={40} color={Colors.primary} />
+              <Footprints size={44} color={isTracking ? Colors.primary : Colors.textSecondary} />
               <Text style={styles.stepsText}>{stepsToday}</Text>
-              <Text style={Typography.caption}>steps</Text>
+              <Text style={Typography.caption}>steps today</Text>
             </View>
           </View>
           <View style={styles.goalInfo}>
             <Target size={16} color={Colors.textSecondary} />
             <Text style={styles.goalText}>Goal: {dailyGoal}</Text>
+          </View>
+        </View>
+
+        {/* Tracking Controls */}
+        <View style={styles.trackingCard}>
+          <TouchableOpacity 
+            style={[styles.trackBtn, isTracking ? styles.stopBtn : styles.startBtn]} 
+            onPress={toggleTracking}
+          >
+            {isTracking ? <Square size={20} color={Colors.white} /> : <Play size={20} color={Colors.white} />}
+            <Text style={styles.trackBtnText}>{isTracking ? 'Stop Tracking' : 'Start Walking'}</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.sessionStats}>
+            <View style={styles.sessionStatItem}>
+              <Clock size={16} color={Colors.textSecondary} />
+              <Text style={styles.sessionStatValue}>{formatTime(activeTime)}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.sessionStatItem}>
+              <MapPin size={16} color={Colors.textSecondary} />
+              <Text style={styles.sessionStatValue}>{distance} km</Text>
+            </View>
           </View>
         </View>
 
@@ -288,6 +366,39 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorText: { color: Colors.error, fontSize: 12, fontWeight: '500' },
+  trackingRing: {
+    borderColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  trackingCard: {
+    backgroundColor: Colors.surface,
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  startBtn: { backgroundColor: Colors.primary },
+  stopBtn: { backgroundColor: Colors.error },
+  trackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 100,
+    gap: 12,
+    marginBottom: 16,
+  },
+  trackBtnText: { color: Colors.white, fontSize: 18, fontWeight: '700' },
+  sessionStats: { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  sessionStatItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sessionStatValue: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  divider: { width: 1, height: 20, backgroundColor: Colors.border },
 });
 
 export default DashboardScreen;
