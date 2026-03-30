@@ -29,6 +29,8 @@ model UserProfile {
   profile_id String   @id @default(uuid()) @db.Uuid
   user_id    String   @unique @db.Uuid
   age        Int?
+  height     Float? // in cm
+  weight     Float? // in kg
   gender     String?
   created_at DateTime @default(now())
 

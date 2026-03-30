@@ -7,6 +7,7 @@ interface AuthContextType {
   token: string | null;
   login: (userData: any, token: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (userData: any) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -50,8 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await SecureStore.deleteItemAsync('user_data');
   };
 
+  const updateUser = async (userData: any) => {
+    setUser(userData);
+    await SecureStore.setItemAsync('user_data', JSON.stringify(userData));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

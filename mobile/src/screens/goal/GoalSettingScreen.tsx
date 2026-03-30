@@ -1,53 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import client from '../../api/client';
-import { ArrowLeft, Save, User, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Target } from 'lucide-react-native';
 
 const GoalSettingScreen = ({ navigation }: any) => {
+  const { colors, typography, isDark } = useTheme();
+  
   const [dailyGoal, setDailyGoal] = useState('5000');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
+    const fetchGoal = async () => {
+      try {
+        const res = await client.get('/goals');
+        if (res.data.status === 'success') {
+          setDailyGoal(res.data.data.daily_goal.toString());
+        }
+      } catch (error) {
+        console.error('Error fetching goal', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGoal();
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      const [goalRes, profileRes] = await Promise.all([
-        client.get('/goals'),
-        client.get('/user/profile')
-      ]);
-
-      if (goalRes.data.status === 'success') setDailyGoal(goalRes.data.data.daily_goal.toString());
-      if (profileRes.data.status === 'success') {
-        const { age, gender } = profileRes.data.data.profile || {};
-        setAge(age ? age.toString() : '');
-        setGender(gender || '');
-      }
-    } catch (error) {
-      console.error('Error fetching profile', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSave = async () => {
-    if (!dailyGoal) {
-      Alert.alert('Error', 'Please enter a daily goal');
+    if (!dailyGoal || isNaN(parseInt(dailyGoal))) {
+      Alert.alert('Error', 'Please enter a valid step goal');
       return;
     }
 
     setSaving(true);
     try {
-      await Promise.all([
-        client.post('/goals', { dailyGoal: parseInt(dailyGoal) }),
-        client.put('/user/profile', { age: age ? parseInt(age) : null, gender: gender || null })
-      ]);
-      Alert.alert('Success', 'Profile and goal updated successfully');
+      await client.post('/goals', { dailyGoal: parseInt(dailyGoal) });
+      Alert.alert('Success', 'Daily goal updated successfully');
       navigation.goBack();
     } catch (error) {
       Alert.alert('Error', 'Failed to save changes');
@@ -56,173 +45,118 @@ const GoalSettingScreen = ({ navigation }: any) => {
     }
   };
 
+  const styles = getStyles(colors, typography);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color={Colors.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ArrowLeft size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={Typography.h2}>Settings</Text>
-        <View style={{ width: 24 }} />
+        <Text style={typography.h2}>Step Goal</Text>
+        <View style={{ width: 28 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.promoCard}>
+          <Target size={48} color={colors.white} />
+          <Text style={styles.promoTitle}>Set your target</Text>
+          <Text style={styles.promoSubtitle}>Consistency is key to a healthy lifestyle.</Text>
+        </View>
+
         <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Calendar size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Daily Step Goal</Text>
-          </View>
-          <Text style={Typography.caption}>How many steps do you want to walk every day?</Text>
+          <Text style={styles.label}>DAILY STEP GOAL</Text>
           <TextInput
             style={styles.input}
             value={dailyGoal}
             onChangeText={setDailyGoal}
             keyboardType="numeric"
             placeholder="5000"
+            placeholderTextColor={colors.textSecondary}
           />
+          <Text style={styles.infoText}>We recommend at least 5,000 steps for moderate activity.</Text>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <User size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Personal Info (Optional)</Text>
-          </View>
-          
-          <Text style={styles.label}>Age</Text>
-          <TextInput
-            style={styles.input}
-            value={age}
-            onChangeText={setAge}
-            keyboardType="numeric"
-            placeholder="25"
-          />
-
-          <Text style={styles.label}>Gender</Text>
-          <View style={styles.genderRow}>
-            {['Male', 'Female', 'Other'].map((item) => (
-              <TouchableOpacity 
-                key={item}
-                style={[styles.genderBtn, gender === item && styles.genderBtnActive]}
-                onPress={() => setGender(item)}
-              >
-                <Text style={[styles.genderText, gender === item && styles.genderTextActive]}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Calendar size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Daily Reminder</Text>
-          </View>
-          <Text style={Typography.caption}>Receive a notification to stay active</Text>
-          <View style={styles.reminderRow}>
-             <Text style={styles.reminderLabel}>Simple Daily Reminder</Text>
-             <TouchableOpacity style={styles.toggleBtn}>
-                <View style={[styles.toggleCircle, { backgroundColor: Colors.primary }]} />
-             </TouchableOpacity>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-          <Save size={20} color={Colors.white} />
-          <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+        <TouchableOpacity 
+          style={[styles.saveBtn, saving && { opacity: 0.7 }]} 
+          onPress={handleSave} 
+          disabled={saving}
+        >
+          {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveText}>Update Goal</Text>}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 24, 
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  scrollContent: { padding: 24 },
-  section: { marginBottom: 32 },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 8, marginTop: 16 },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    marginTop: 8,
-    backgroundColor: Colors.surface,
-  },
-  genderRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  genderBtn: {
-    flex: 1,
-    height: 45,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-  },
-  genderBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  genderText: { color: Colors.text, fontWeight: '600' },
-  genderTextActive: { color: Colors.white },
-  saveBtn: {
-    height: 55,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  header: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 20,
-    shadowColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backBtn: { padding: 4 },
+  scrollContent: { padding: 20 },
+  promoCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  saveText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
-  reminderRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginTop: 16,
+  promoTitle: { fontSize: 24, fontWeight: '800', color: colors.white, marginTop: 16 },
+  promoSubtitle: { fontSize: 14, color: colors.white, opacity: 0.8, marginTop: 4, textAlign: 'center' },
+  section: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 32,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  label: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 12 },
+  input: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: colors.text,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.background,
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
+  infoText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 16 },
+  saveBtn: {
+    backgroundColor: colors.primary,
     padding: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 16,
   },
-  reminderLabel: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  toggleBtn: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.border,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignSelf: 'flex-end',
-  },
+  saveText: { color: colors.white, fontSize: 17, fontWeight: '600' },
 });
 
 export default GoalSettingScreen;

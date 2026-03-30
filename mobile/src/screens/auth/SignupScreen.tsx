@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar, SafeAreaView } from 'react-native';
+import { useTheme } from '../../theme';
 import client from '../../api/client';
 import { useAuth } from '../../store/AuthContext';
 
 const SignupScreen = ({ navigation }: any) => {
+  const { colors, typography, isDark } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,82 +36,103 @@ const SignupScreen = ({ navigation }: any) => {
     }
   };
 
+  const styles = getStyles(colors, typography);
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={Typography.h1}>Create Account</Text>
-          <Text style={[Typography.caption, { marginTop: 8 }]}>Start your wellness journey today</Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <Text style={typography.h1}>Create Account</Text>
+            <Text style={[typography.caption, { marginTop: 8 }]}>Start your wellness journey today</Text>
+          </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="John Doe"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="John Doe"
+                placeholderTextColor={colors.textSecondary}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
 
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="example@mail.com"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="example@mail.com"
+                placeholderTextColor={colors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="********"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="********"
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Create Account'}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+              <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Create Account'}</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.footer}>
-            <Text style={Typography.caption}>Already have an account? <Text style={styles.link}>Sign In</Text></Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.footer}>
+              <Text style={typography.caption}>Already have an account? <Text style={styles.link}>Sign In</Text></Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
-  scrollContent: { padding: 24, paddingTop: 100 },
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: 24, paddingTop: 60 },
   header: { marginBottom: 40 },
-  form: { gap: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 4 },
+  form: { gap: 20 },
+  inputGroup: { gap: 8 },
+  label: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
+    height: 54,
+    borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   button: {
-    height: 50,
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
+    height: 54,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  buttonText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+  buttonText: { color: colors.white, fontSize: 17, fontWeight: '700' },
   footer: { alignItems: 'center', marginTop: 24 },
-  link: { color: Colors.primary, fontWeight: '700' },
+  link: { color: colors.primary, fontWeight: '700' },
 });
 
 export default SignupScreen;

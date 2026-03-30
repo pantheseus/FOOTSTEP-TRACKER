@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import client from '../../api/client';
 import { ChevronLeft, Check } from 'lucide-react-native';
 
 const PersonalInformationScreen = ({ navigation }: any) => {
-  const { user, setUser } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { colors, typography, isDark } = useTheme();
+  
   const [loading, setLoading] = useState(false);
   
-  // Initialize state with current user data
   const [formData, setFormData] = useState({
     name: user?.name || '',
     age: user?.profile?.age?.toString() || '',
+    gender: user?.profile?.gender || '',
     height: user?.profile?.height?.toString() || '',
     weight: user?.profile?.weight?.toString() || '',
   });
@@ -25,24 +27,20 @@ const PersonalInformationScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      // 1. Update Profile (Age, Height, Weight)
       const profileRes = await client.put('/user/profile', {
         age: formData.age ? parseInt(formData.age) : null,
+        gender: formData.gender || null,
         height: formData.height ? parseFloat(formData.height) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
       });
 
-      // 2. Note: We are ignoring the Name update for now as per instructions (or if you want to support it, add an endpoint)
-      // Since the user asked to "ignore email," we'll just update the profile fields.
-      
       if (profileRes.data.status === 'success') {
-        // Update local auth context
         const updatedUser = { 
           ...user, 
           name: formData.name,
           profile: { ...user.profile, ...profileRes.data.data } 
         };
-        setUser(updatedUser);
+        await updateUser(updatedUser);
         Alert.alert("Success", "Personal information updated successfully!");
         navigation.goBack();
       }
@@ -56,27 +54,31 @@ const PersonalInformationScreen = ({ navigation }: any) => {
 
   const InputField = ({ label, value, onChangeText, placeholder, keyboardType = 'default', editable = true }: any) => (
     <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.labelText}>{label}</Text>
       <TextInput
         style={[styles.input, !editable && styles.disabledInput]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
         keyboardType={keyboardType}
         editable={editable}
       />
     </View>
   );
 
+  const styles = getStyles(colors, typography);
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={Colors.text} />
+          <ChevronLeft size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={Typography.h2}>Personal Info</Text>
+        <Text style={typography.h2}>Personal Info</Text>
         <TouchableOpacity onPress={handleSave} disabled={loading}>
-          {loading ? <ActivityIndicator size="small" color={Colors.primary} /> : <Check size={24} color={Colors.primary} />}
+          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Check size={24} color={colors.primary} />}
         </TouchableOpacity>
       </View>
 
@@ -113,7 +115,18 @@ const PersonalInformationScreen = ({ navigation }: any) => {
             </View>
             <View style={{ width: 16 }} />
             <View style={{ flex: 1 }}>
-               {/* Spacer */}
+               <Text style={styles.labelText}>GENDER</Text>
+               <View style={styles.genderRow}>
+                  {['Male', 'Female'].map((g) => (
+                    <TouchableOpacity 
+                      key={g} 
+                      style={[styles.genderBtn, formData.gender === g && styles.genderBtnActive]}
+                      onPress={() => setFormData({ ...formData, gender: g })}
+                    >
+                      <Text style={[styles.genderBtnText, formData.gender === g && styles.genderBtnTextActive]}>{g}</Text>
+                    </TouchableOpacity>
+                  ))}
+               </View>
             </View>
           </View>
 
@@ -146,7 +159,7 @@ const PersonalInformationScreen = ({ navigation }: any) => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.saveBtnText}>Save Changes</Text>
           )}
@@ -156,22 +169,22 @@ const PersonalInformationScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.border,
   },
   backBtn: { padding: 4 },
   scrollContent: { padding: 20 },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
@@ -184,31 +197,48 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.textSecondary,
     marginBottom: 16,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 11, fontWeight: '700', color: '#8E8E93', marginBottom: 6 },
+  labelText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6, textTransform: 'uppercase' },
   input: {
     fontSize: 17,
-    color: Colors.text,
+    color: colors.text,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.background,
     paddingVertical: 8,
   },
-  disabledInput: { color: '#C7C7CC' },
+  disabledInput: { color: colors.textSecondary, opacity: 0.6 },
   noteContainer: { marginTop: -8, marginBottom: 8 },
-  note: { fontSize: 12, color: '#8E8E93', fontStyle: 'italic' },
-  row: { flexDirection: 'row' },
+  note: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic' },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+  genderRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  genderBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.background,
+    alignItems: 'center',
+    backgroundColor: colors.card,
+  },
+  genderBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  genderBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  genderBtnTextActive: { color: colors.white },
   saveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
     marginTop: 8,
   },
-  saveBtnText: { color: Colors.white, fontSize: 17, fontWeight: '600' },
+  saveBtnText: { color: colors.white, fontSize: 17, fontWeight: '600' },
 });
 
 export default PersonalInformationScreen;

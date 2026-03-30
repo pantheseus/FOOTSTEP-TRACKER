@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import client from '../../api/client';
 import { ChevronLeft, Lock, Trash2, ShieldAlert } from 'lucide-react-native';
 
 const SecuritySettingsScreen = ({ navigation }: any) => {
   const { logout } = useAuth();
+  const { colors, typography, isDark } = useTheme();
+  
   const [loading, setLoading] = useState(false);
   const [passwordData, setPasswordData] = useState({
     oldPassword: '',
@@ -72,32 +74,35 @@ const SecuritySettingsScreen = ({ navigation }: any) => {
 
   const InputField = ({ label, value, onChangeText, placeholder, secureTextEntry = true }: any) => (
     <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.labelText}>{label}</Text>
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
         secureTextEntry={secureTextEntry}
-        placeholderTextColor="#C7C7CC"
       />
     </View>
   );
 
+  const styles = getStyles(colors, typography);
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={Colors.text} />
+          <ChevronLeft size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={Typography.h2}>Security</Text>
+        <Text style={typography.h2}>Security</Text>
         <View style={{ width: 28 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Lock size={18} color={Colors.primary} />
+            <Lock size={18} color={colors.primary} />
             <Text style={styles.sectionTitle}>Change Password</Text>
           </View>
           <InputField 
@@ -124,14 +129,14 @@ const SecuritySettingsScreen = ({ navigation }: any) => {
             onPress={handleChangePassword}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.actionBtnText}>Update Password</Text>}
+            {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.actionBtnText}>Update Password</Text>}
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <ShieldAlert size={18} color={Colors.error} />
-            <Text style={[styles.sectionTitle, { color: Colors.error }]}>Danger Zone</Text>
+            <ShieldAlert size={18} color={colors.error} />
+            <Text style={[styles.sectionTitle, { color: colors.error }]}>Danger Zone</Text>
           </View>
           <Text style={styles.dangerNote}>Deleting your account will purge your database record on our Render server. Your friends will no longer see your activity.</Text>
           
@@ -140,7 +145,7 @@ const SecuritySettingsScreen = ({ navigation }: any) => {
             onPress={handleDeleteAccount}
             disabled={loading}
           >
-            <Trash2 size={18} color={Colors.error} />
+            <Trash2 size={18} color={colors.error} />
             <Text style={styles.deleteBtnText}>Delete My Account</Text>
           </TouchableOpacity>
         </View>
@@ -149,22 +154,22 @@ const SecuritySettingsScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.border,
   },
   backBtn: { padding: 4 },
   scrollContent: { padding: 20 },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
@@ -175,25 +180,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase' },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 11, fontWeight: '700', color: '#8E8E93', marginBottom: 6 },
+  labelText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 },
   input: {
     fontSize: 17,
-    color: Colors.text,
+    color: colors.text,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.background,
     paddingVertical: 8,
   },
   actionBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
-  actionBtnText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
-  dangerNote: { fontSize: 13, color: '#8E8E93', marginBottom: 20, lineHeight: 18 },
+  actionBtnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  dangerNote: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 18 },
   deleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,10 +206,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.error,
+    borderColor: colors.error,
     gap: 8,
   },
-  deleteBtnText: { color: Colors.error, fontSize: 16, fontWeight: '600' },
+  deleteBtnText: { color: colors.error, fontSize: 16, fontWeight: '600' },
 });
 
 export default SecuritySettingsScreen;

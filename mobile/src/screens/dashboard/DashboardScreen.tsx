@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, Alert } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, Alert, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import client from '../../api/client';
 import { Footprints, Target, Flame, TrendingUp, Settings, ChevronRight, Activity, MapPin, Clock } from 'lucide-react-native';
@@ -8,10 +8,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Pedometer } from 'expo-sensors';
 import { registerBackgroundSync } from '../../services/BackgroundSyncService';
 
-const { width } = Dimensions.get('window');
-
 const DashboardScreen = ({ navigation }: any) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { colors, typography, isDark } = useTheme();
+  
   const [stepsToday, setStepsToday] = useState(0);
   const [dailyGoal, setDailyGoal] = useState(5000);
   const [history, setHistory] = useState<any[]>([]);
@@ -49,22 +49,17 @@ const DashboardScreen = ({ navigation }: any) => {
     }, [])
   );
 
-  // Automatic Pedometer Tracking & Permission Handling
   useEffect(() => {
     let subscription: any = null;
 
     const initializePedometer = async () => {
-      // 1. Check & Request Permissions
       const { status } = await Pedometer.requestPermissionsAsync();
       setIsPedometerAvailable(status === 'granted' ? 'true' : 'false');
 
-      if (status !== 'granted') {
-        return;
-      }
+      if (status !== 'granted') return;
 
-      // 2. Fetch Historical Steps Since Midnight
       const start = new Date();
-      start.setHours(0, 0, 0, 0); // Today at 00:00:00
+      start.setHours(0, 0, 0, 0);
       const end = new Date();
 
       try {
@@ -77,12 +72,6 @@ const DashboardScreen = ({ navigation }: any) => {
         console.error('Could not fetch historical steps', e);
       }
 
-      // 3. Start Watching for Live Steps
-      subscription = Pedometer.watchStepCount((result) => {
-        // We will re-fetch the absolute total from history occasionally for accuracy
-      });
-
-      // Refetch absolute total every 30 seconds for maximum reliability
       const interval = setInterval(async () => {
         const now = new Date();
         const midnight = new Date();
@@ -91,12 +80,9 @@ const DashboardScreen = ({ navigation }: any) => {
         setStepsToday(latest.steps);
       }, 30000);
 
-      // 4. Register Background Sync
       registerBackgroundSync();
 
-      return () => {
-        clearInterval(interval);
-      };
+      return () => clearInterval(interval);
     };
 
     initializePedometer();
@@ -106,21 +92,18 @@ const DashboardScreen = ({ navigation }: any) => {
     };
   }, []);
 
-  // Auto-sync to backend every 100 new steps
   useEffect(() => {
     const syncSteps = async () => {
-      if (stepsToday > lastSavedSteps + 50) { // Sync every 50 steps for better accuracy
+      if (stepsToday - lastSavedSteps >= 100) {
         try {
-          const today = new Date().toISOString().split('T')[0];
-          await client.post('/steps', { date: today, stepCount: stepsToday });
+          const date = new Date().toISOString().split('T')[0];
+          await client.post('/steps/update', { date, stepCount: stepsToday });
           setLastSavedSteps(stepsToday);
-          console.log('Synced steps to cloud:', stepsToday);
         } catch (error) {
-          console.error('Failed to sync steps', error);
+          console.error('Step sync failed', error);
         }
       }
     };
-
     syncSteps();
   }, [stepsToday]);
 
@@ -129,20 +112,23 @@ const DashboardScreen = ({ navigation }: any) => {
     fetchData();
   };
 
-  const distance = (stepsToday * 0.000762).toFixed(2); // Stride length 0.762m -> km
   const progress = Math.min((stepsToday / dailyGoal) * 100, 100);
   const calories = Math.round(stepsToday * 0.04);
+  const distance = (stepsToday * 0.000762).toFixed(2);
+
+  const styles = getStyles(colors, typography, progress);
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={styles.header}>
           <View>
             <Text style={styles.dayText}>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
-            <Text style={Typography.h1}>Activity</Text>
+            <Text style={typography.h1}>Activity</Text>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
             <View style={styles.headerAvatar}>
@@ -151,19 +137,17 @@ const DashboardScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* Central Progress Circle */}
         <View style={styles.progressContainer}>
           <View style={styles.progressRing}>
             <View style={[styles.progressBackground, { height: `${progress}%` }]} />
             <View style={styles.progressContent}>
-              <Footprints size={48} color="#FF2D55" /> 
+              <Footprints size={48} color={isDark ? "#5B5FEF" : "#FF2D55"} /> 
               <Text style={styles.stepsText}>{stepsToday}</Text>
               <Text style={styles.stepsLabel}>STEPS</Text>
             </View>
           </View>
         </View>
 
-        {/* Quick Stats Grid */}
         <View style={styles.quickStatsRow}>
            <View style={styles.quickStatCard}>
               <Text style={styles.quickStatLabel}>DISTANCE</Text>
@@ -175,10 +159,9 @@ const DashboardScreen = ({ navigation }: any) => {
            </View>
         </View>
 
-        {/* History Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={Typography.h2}>Activity History</Text>
+            <Text style={typography.h2}>Activity History</Text>
             <TouchableOpacity onPress={() => navigation.navigate('History')}>
               <Text style={styles.viewAll}>Show All</Text>
             </TouchableOpacity>
@@ -201,7 +184,7 @@ const DashboardScreen = ({ navigation }: any) => {
 
         {isPedometerAvailable === 'false' && (
           <View style={styles.errorBanner}>
-            <Activity size={20} color="#FF3B30" />
+            <Activity size={20} color={colors.error} />
             <View style={{ flex: 1 }}>
               <Text style={styles.errorText}>Motion Permission Required.</Text>
               <TouchableOpacity onPress={() => Pedometer.requestPermissionsAsync()}>
@@ -215,8 +198,8 @@ const DashboardScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+const getStyles = (colors: any, typography: any, progress: number) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { padding: 20, paddingTop: 60 },
   header: { 
     flexDirection: 'row', 
@@ -225,16 +208,21 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 4,
   },
-  dayText: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase', marginBottom: 2 },
+  dayText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 2 },
   headerAvatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  avatarText: { fontSize: 16, fontWeight: '600', color: '#8E8E93' },
+  avatarText: { fontSize: 16, fontWeight: '600', color: colors.textSecondary },
   progressContainer: { alignItems: 'center', marginBottom: 24 },
   progressRing: {
     width: 280,
@@ -243,10 +231,10 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 10,
     overflow: 'hidden',
@@ -256,15 +244,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FF2D5515',
+    backgroundColor: colors.primary + '15',
   },
   progressContent: { alignItems: 'center' },
-  stepsText: { fontSize: 64, fontWeight: '800', color: Colors.text, letterSpacing: -2 },
-  stepsLabel: { fontSize: 14, fontWeight: '700', color: '#8E8E93', marginTop: -4, letterSpacing: 1 },
+  stepsText: { fontSize: 64, fontWeight: '800', color: colors.text, letterSpacing: -2 },
+  stepsLabel: { fontSize: 14, fontWeight: '700', color: colors.textSecondary, marginTop: -4, letterSpacing: 1 },
   quickStatsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
   quickStatCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 20,
     shadowColor: '#000',
@@ -273,29 +261,29 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  quickStatLabel: { fontSize: 11, fontWeight: '700', color: '#8E8E93', marginBottom: 4 },
-  quickStatValue: { fontSize: 24, fontWeight: '800', color: Colors.text },
-  unit: { fontSize: 13, color: '#8E8E93', fontWeight: '600' },
+  quickStatLabel: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 4 },
+  quickStatValue: { fontSize: 24, fontWeight: '800', color: colors.text },
+  unit: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   section: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 4 },
-  viewAll: { color: '#007AFF', fontWeight: '600', fontSize: 15 },
-  historyList: { backgroundColor: '#fff', borderRadius: 20, padding: 16 },
+  viewAll: { color: colors.primary, fontWeight: '600', fontSize: 15 },
+  historyList: { backgroundColor: colors.card, borderRadius: 20, padding: 16 },
   historyItem: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 8 },
-  historyDate: { width: 45, fontSize: 14, fontWeight: '600', color: '#8E8E93' },
-  historyBarContainer: { flex: 1, height: 8, backgroundColor: '#F2F2F7', borderRadius: 4, overflow: 'hidden' },
-  historyBar: { height: '100%', backgroundColor: '#FF2D55', borderRadius: 4 },
-  historyValue: { width: 50, fontSize: 14, fontWeight: '700', color: Colors.text, textAlign: 'right' },
-  emptyText: { textAlign: 'center', color: '#8E8E93', fontSize: 14, padding: 20 },
+  historyDate: { width: 45, fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  historyBarContainer: { flex: 1, height: 8, backgroundColor: colors.background, borderRadius: 4, overflow: 'hidden' },
+  historyBar: { height: '100%', backgroundColor: colors.primary, borderRadius: 4 },
+  historyValue: { width: 50, fontSize: 14, fontWeight: '700', color: colors.text, textAlign: 'right' },
+  emptyText: { textAlign: 'center', color: colors.textSecondary, fontSize: 14, padding: 20 },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 20,
     marginBottom: 24,
     gap: 12,
   },
-  errorText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
+  errorText: { color: colors.error, fontSize: 15, fontWeight: '600' },
 });
 
 export default DashboardScreen;

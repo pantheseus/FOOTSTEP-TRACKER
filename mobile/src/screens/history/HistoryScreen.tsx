@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, SafeAreaView, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import client from '../../api/client';
 import { ArrowLeft, Calendar } from 'lucide-react-native';
 
 const HistoryScreen = ({ navigation }: any) => {
+  const { colors, typography, isDark } = useTheme();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +35,8 @@ const HistoryScreen = ({ navigation }: any) => {
 
   const renderItem = ({ item }: { item: any }) => {
     const date = new Date(item.date);
+    const progress = Math.min((item.step_count / 5000) * 100, 100);
+    
     return (
       <View style={styles.historyItem}>
         <View style={styles.dateBox}>
@@ -43,92 +46,105 @@ const HistoryScreen = ({ navigation }: any) => {
         <View style={styles.infoContent}>
           <Text style={styles.stepsText}>{item.step_count.toLocaleString()} steps</Text>
           <Text style={styles.dayText}>{date.toLocaleDateString(undefined, { weekday: 'long' })}</Text>
+          
+          <View style={styles.miniBarContainer}>
+            <View style={[styles.miniBar, { width: `${progress}%`, backgroundColor: colors.primary }]} />
+          </View>
         </View>
-        <View style={styles.progressBadge}>
-          <Text style={styles.badgeText}>{Math.round((item.step_count / 5000) * 100)}%</Text>
+        <View style={[styles.progressBadge, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.badgeText, { color: colors.primary }]}>{Math.round(progress)}%</Text>
         </View>
       </View>
     );
   };
 
+  const styles = getStyles(colors, typography);
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color={Colors.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ArrowLeft size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={Typography.h2}>History</Text>
-        <View style={{ width: 24 }} />
+        <Text style={typography.h2}>History</Text>
+        <View style={{ width: 28 }} />
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
           data={history}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.step_id || item.date}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.emptyContent}>
-              <Calendar size={48} color={Colors.surface} />
-              <Text style={styles.emptyText}>No history found</Text>
+              <Calendar size={64} color={colors.textSecondary} opacity={0.2} />
+              <Text style={styles.emptyText}>No activity recorded yet.</Text>
             </View>
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    padding: 24, 
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { padding: 24 },
+  backBtn: { padding: 4 },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  listContent: { padding: 16 },
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   dateBox: {
-    width: 60,
-    height: 60,
-    backgroundColor: Colors.white,
+    width: 54,
+    height: 54,
+    backgroundColor: colors.background,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
-  dateDay: { fontSize: 20, fontWeight: '700', color: Colors.primary },
-  dateMonth: { fontSize: 12, color: Colors.textSecondary, textTransform: 'uppercase' },
+  dateDay: { fontSize: 20, fontWeight: '800', color: colors.text },
+  dateMonth: { fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700' },
   infoContent: { flex: 1, marginLeft: 16 },
-  stepsText: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  dayText: { fontSize: 14, color: Colors.textSecondary },
+  stepsText: { fontSize: 18, fontWeight: '700', color: colors.text },
+  dayText: { fontSize: 13, color: colors.textSecondary, marginBottom: 8 },
+  miniBarContainer: { height: 4, backgroundColor: colors.background, borderRadius: 2, width: '80%', overflow: 'hidden' },
+  miniBar: { height: '100%', borderRadius: 2 },
   progressBadge: {
-    backgroundColor: '#6366f120',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  badgeText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  badgeText: { fontSize: 12, fontWeight: '800' },
   emptyContent: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  emptyText: { marginTop: 16, color: Colors.textSecondary, fontSize: 16 },
+  emptyText: { marginTop: 16, color: colors.textSecondary, fontSize: 16, fontWeight: '600' },
 });
 
 export default HistoryScreen;

@@ -34,13 +34,23 @@ export const findUserById = async (userId: string) => {
   });
 };
 
-export const updateProfile = async (userId: string, age?: number, gender?: string) => {
+export const updateProfile = async (userId: string, data: { age?: number; gender?: string; height?: number; weight?: number }) => {
   return await prisma.userProfile.update({
     where: { user_id: userId },
-    data: {
-      age,
-      gender
-    }
+    data
+  });
+};
+
+export const updatePassword = async (userId: string, passwordHash: string) => {
+  return await prisma.user.update({
+    where: { user_id: userId },
+    data: { password_hash: passwordHash }
+  });
+};
+
+export const deleteUser = async (userId: string) => {
+  return await prisma.user.delete({
+    where: { user_id: userId }
   });
 };
 

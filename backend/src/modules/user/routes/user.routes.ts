@@ -11,5 +11,7 @@ router.post('/login', userController.login);
 // Profile routes
 router.get('/profile', authenticateToken, userController.getProfile);
 router.put('/profile', authenticateToken, userController.updateProfile);
+router.post('/change-password', authenticateToken, userController.changePassword);
+router.delete('/', authenticateToken, userController.deleteAccount);
 
 export default router;

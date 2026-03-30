@@ -1,30 +1,33 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import { User, LogOut, ChevronLeft, Shield, Bell, CircleHelp, Target } from 'lucide-react-native';
-import { Alert } from 'react-native';
 
 const SettingsScreen = ({ navigation }: any) => {
   const { user, logout } = useAuth();
+  const { colors, typography, isDark } = useTheme();
 
   const SettingItem = ({ icon: Icon, label, onPress, destructive }: any) => (
     <TouchableOpacity style={styles.item} onPress={onPress}>
       <View style={[styles.iconContainer, destructive && styles.destructiveIcon]}>
-        <Icon size={20} color={destructive ? Colors.error : Colors.primary} />
+        <Icon size={20} color={destructive ? colors.error : colors.primary} />
       </View>
-      <Text style={[styles.itemLabel, destructive && { color: Colors.error }]}>{label}</Text>
+      <Text style={[styles.itemLabel, destructive && { color: colors.error }]}>{label}</Text>
       {!destructive && <Text style={styles.arrow}>›</Text>}
     </TouchableOpacity>
   );
 
+  const styles = getStyles(colors, typography);
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={Colors.text} />
+          <ChevronLeft size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={Typography.h2}>Settings</Text>
+        <Text style={typography.h2}>Settings</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -94,28 +97,27 @@ const SettingsScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' }, // iOS Light Gray
+const getStyles = (colors: any, typography: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
   },
   backBtn: { padding: 4 },
   scrollContent: { padding: 16 },
   profileCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     marginBottom: 24,
-    // Subtle Apple shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -123,25 +125,25 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
-  avatarText: { fontSize: 32, fontWeight: '600', color: '#8E8E93' },
-  userName: { fontSize: 22, fontWeight: '700', color: Colors.text },
-  userEmail: { fontSize: 15, color: '#8E8E93', marginTop: 4 },
+  avatarText: { fontSize: 32, fontWeight: '600', color: colors.textSecondary },
+  userName: { fontSize: 22, fontWeight: '700', color: colors.text },
+  userEmail: { fontSize: 15, color: colors.textSecondary, marginTop: 4 },
   section: { marginBottom: 24 },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.textSecondary,
     marginLeft: 16,
     marginBottom: 8,
     textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -155,18 +157,18 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  destructiveIcon: { backgroundColor: '#FF3B3015' },
-  itemLabel: { flex: 1, fontSize: 17, color: Colors.text },
-  arrow: { fontSize: 20, color: '#C7C7CC', fontWeight: '300' },
-  divider: { height: 1, backgroundColor: '#F2F2F7', marginLeft: 60 },
+  destructiveIcon: { backgroundColor: colors.error + '15' },
+  itemLabel: { flex: 1, fontSize: 17, color: colors.text },
+  arrow: { fontSize: 20, color: colors.textSecondary, fontWeight: '300', opacity: 0.5 },
+  divider: { height: 1, backgroundColor: colors.background, marginLeft: 60 },
   version: {
     textAlign: 'center',
-    color: '#8E8E93',
+    color: colors.textSecondary,
     fontSize: 13,
     marginTop: 8,
     marginBottom: 32,

@@ -99,13 +99,56 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
-    const { age, gender } = req.body;
-    const profile = await userService.updateProfile(userId, age, gender);
+    const { age, gender, height, weight } = req.body;
+    const profile = await userService.updateProfile(userId, { age, gender, height, weight });
 
     res.json({
       status: 'success',
       data: profile,
       message: 'Profile updated successfully'
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ status: 'error', message: 'Old and new passwords are required' });
+    }
+
+    const user = await userService.findUserById(userId);
+    if (!user || !(await bcrypt.compare(oldPassword, user.password_hash))) {
+      return res.status(401).json({ status: 'error', message: 'Invalid old password' });
+    }
+
+    const new_password_hash = await bcrypt.hash(newPassword, 10);
+    await userService.updatePassword(userId, new_password_hash);
+
+    res.json({
+      status: 'success',
+      message: 'Password updated successfully'
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+export const deleteAccount = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+
+    await userService.deleteUser(userId);
+
+    res.json({
+      status: 'success',
+      message: 'Account deleted successfully'
     });
   } catch (error: any) {
     res.status(500).json({ status: 'error', message: error.message });
