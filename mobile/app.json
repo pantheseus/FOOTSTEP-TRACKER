@@ -34,6 +34,9 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-sensors",
+      "expo-task-manager",
+      "expo-background-fetch",
       "expo-secure-store",
       "@react-native-community/datetimepicker"
     ],

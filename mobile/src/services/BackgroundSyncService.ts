@@ -8,18 +8,27 @@ const BACKGROUND_STEP_SYNC_TASK = 'background-step-sync';
 // Define the background task
 TaskManager.defineTask(BACKGROUND_STEP_SYNC_TASK, async () => {
   try {
-    const now = new Date();
     const midnight = new Date();
     midnight.setHours(0, 0, 0, 0);
+    const now = new Date();
 
     const isAvailable = await Pedometer.isAvailableAsync();
-    if (!isAvailable) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (!isAvailable) {
+      console.log('Pedometer not available for background sync');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+
+    const { status } = await Pedometer.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Pedometer permissions not granted for background sync');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
 
     const result = await Pedometer.getStepCountAsync(midnight, now);
-    if (result && result.steps > 0) {
+    if (result) {
       const today = now.toISOString().split('T')[0];
-      await client.post('/steps', { date: today, stepCount: result.steps });
-      console.log('Background sync successful:', result.steps);
+      await client.post('/steps/update', { date: today, stepCount: result.steps });
+      console.log('Background sync successful:', result.steps, 'steps at', now.toLocaleTimeString());
       return BackgroundFetch.BackgroundFetchResult.NewData;
     }
 

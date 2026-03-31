@@ -52,40 +52,51 @@ const DashboardScreen = ({ navigation }: any) => {
   useEffect(() => {
     let subscription: any = null;
 
-    const initializePedometer = async () => {
-      const { status } = await Pedometer.requestPermissionsAsync();
-      setIsPedometerAvailable(status === 'granted' ? 'true' : 'false');
-
-      if (status !== 'granted') return;
-
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date();
-
+    const startPedometer = async () => {
       try {
-        const result = await Pedometer.getStepCountAsync(start, end);
-        if (result) {
-          setStepsToday(result.steps);
-          setLastSavedSteps(result.steps);
+        const isAvailable = await Pedometer.isAvailableAsync();
+        setIsPedometerAvailable(isAvailable ? 'true' : 'false');
+        if (!isAvailable) return;
+
+        const { status } = await Pedometer.requestPermissionsAsync();
+        if (status !== 'granted') {
+          setIsPedometerAvailable('false');
+          return;
         }
-      } catch (e) {
-        console.error('Could not fetch historical steps', e);
+
+        // 1. Get initial total steps from midnight to now
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        const initialResult = await Pedometer.getStepCountAsync(start, end);
+        if (initialResult) {
+          setStepsToday(initialResult.steps);
+          setLastSavedSteps(initialResult.steps);
+        }
+
+        // 2. Start Live Listening (This triggers instantly as you walk)
+        subscription = Pedometer.watchStepCount((result) => {
+          // watchStepCount returns steps since the app started watching
+          // We need to re-fetch the total for the day to be safe, 
+          // or add the incremental change. Re-fetching everything since midnight is most accurate.
+          fetchLiveSteps();
+        });
+
+        registerBackgroundSync();
+      } catch (error) {
+        console.error('Pedometer initialization error', error);
       }
-
-      const interval = setInterval(async () => {
-        const now = new Date();
-        const midnight = new Date();
-        midnight.setHours(0, 0, 0, 0);
-        const latest = await Pedometer.getStepCountAsync(midnight, now);
-        setStepsToday(latest.steps);
-      }, 30000);
-
-      registerBackgroundSync();
-
-      return () => clearInterval(interval);
     };
 
-    initializePedometer();
+    const fetchLiveSteps = async () => {
+       const midnight = new Date();
+       midnight.setHours(0, 0, 0, 0);
+       const now = new Date();
+       const result = await Pedometer.getStepCountAsync(midnight, now);
+       setStepsToday(result.steps);
+    };
+
+    startPedometer();
 
     return () => {
       if (subscription) subscription.remove();
