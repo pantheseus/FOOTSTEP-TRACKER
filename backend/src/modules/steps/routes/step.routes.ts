@@ -6,7 +6,7 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.post('/', stepController.updateSteps);
+router.post('/update', stepController.updateSteps);
 router.get('/today', stepController.getStepsToday);
 router.get('/history', stepController.getStepHistory);
 

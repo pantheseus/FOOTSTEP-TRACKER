@@ -56,52 +56,64 @@ const DashboardScreen = ({ navigation }: any) => {
       try {
         const isAvailable = await Pedometer.isAvailableAsync();
         setIsPedometerAvailable(isAvailable ? 'true' : 'false');
-        if (!isAvailable) return;
+        if (!isAvailable) {
+          console.log('Pedometer NOT available on this hardware');
+          return;
+        }
 
         const { status } = await Pedometer.requestPermissionsAsync();
         if (status !== 'granted') {
           setIsPedometerAvailable('false');
+          console.log('Pedometer permission denied');
           return;
         }
 
-        // 1. Get initial total steps from midnight to now
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        const initialResult = await Pedometer.getStepCountAsync(start, end);
-        if (initialResult) {
-          setStepsToday(initialResult.steps);
-          setLastSavedSteps(initialResult.steps);
-        }
+        console.log('Pedometer permission GRANTED. Initializing hardware link...');
 
-        // 2. Start Live Listening (This triggers instantly as you walk)
+        // 1. Initial manual fetch to ensure we aren't starting at zero
+        await fetchLiveSteps();
+
+        // 2. Continuous Native Listening
         subscription = Pedometer.watchStepCount((result) => {
-          // watchStepCount returns steps since the app started watching
-          // We need to re-fetch the total for the day to be safe, 
-          // or add the incremental change. Re-fetching everything since midnight is most accurate.
-          fetchLiveSteps();
+          // Optimization: Only re-fetch if we actually moved
+          if (result.steps > 0) {
+            fetchLiveSteps();
+          }
         });
 
         registerBackgroundSync();
       } catch (error) {
-        console.error('Pedometer initialization error', error);
+        console.error('Core Pedometer Failure:', error);
+        setIsPedometerAvailable('false');
       }
-    };
-
-    const fetchLiveSteps = async () => {
-       const midnight = new Date();
-       midnight.setHours(0, 0, 0, 0);
-       const now = new Date();
-       const result = await Pedometer.getStepCountAsync(midnight, now);
-       setStepsToday(result.steps);
     };
 
     startPedometer();
 
     return () => {
-      if (subscription) subscription.remove();
+      if (subscription) {
+        subscription.remove();
+        console.log('Pedometer listener disconnected');
+      }
     };
   }, []);
+
+  const fetchLiveSteps = async () => {
+    try {
+      const midnight = new Date();
+      midnight.setHours(0, 0, 0, 0);
+      const now = new Date();
+      
+      const result = await Pedometer.getStepCountAsync(midnight, now);
+      if (result) {
+        console.log('Hardware Link Update:', result.steps, 'steps');
+        setStepsToday(result.steps);
+        setIsPedometerAvailable('true');
+      }
+    } catch (err) {
+      console.error('Failed to query hardware sensor:', err);
+    }
+  };
 
   useEffect(() => {
     const syncSteps = async () => {
@@ -138,7 +150,11 @@ const DashboardScreen = ({ navigation }: any) => {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.dayText}>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+            <View style={styles.statusRow}>
+              <Text style={styles.dayText}>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+              <View style={[styles.statusDot, { backgroundColor: isPedometerAvailable === 'true' ? '#34C759' : '#FF3B30' }]} />
+              <Text style={styles.statusLabel}>{isPedometerAvailable === 'true' ? 'Hardware Link: OK' : 'Hardware Link: Error'}</Text>
+            </View>
             <Text style={typography.h1}>Activity</Text>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
@@ -219,7 +235,10 @@ const getStyles = (colors: any, typography: any, progress: number) => StyleSheet
     marginBottom: 24,
     paddingHorizontal: 4,
   },
-  dayText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 2 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusLabel: { fontSize: 10, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
+  dayText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' },
   headerAvatar: {
     width: 38,
     height: 38,
