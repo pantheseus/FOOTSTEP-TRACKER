@@ -8,6 +8,7 @@ import PersonalInformationScreen from '../screens/settings/PersonalInformationSc
 import SecuritySettingsScreen from '../screens/settings/SecuritySettingsScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import HelpCenterScreen from '../screens/settings/HelpCenterScreen';
+import DiagnosticScreen from '../screens/settings/DiagnosticScreen';
 
 const Stack = createStackNavigator();
 
@@ -22,6 +23,7 @@ const AppNavigator = () => {
       <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+      <Stack.Screen name="Diagnostic" component={DiagnosticScreen} />
     </Stack.Navigator>
   );
 };

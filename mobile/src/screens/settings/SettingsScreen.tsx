@@ -70,12 +70,18 @@ const SettingsScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>Support & Diagnostics</Text>
           <View style={styles.card}>
             <SettingItem 
               icon={CircleHelp} 
               label="Help Center" 
               onPress={() => navigation.navigate("HelpCenter")}
+            />
+            <View style={styles.divider} />
+            <SettingItem 
+              icon={Zap} 
+              label="Diagnostic Center" 
+              onPress={() => navigation.navigate("Diagnostic")}
             />
           </View>
         </View>

@@ -5,7 +5,7 @@ import { useAuth } from '../../store/AuthContext';
 import client from '../../api/client';
 import { Footprints, Target, Flame, TrendingUp, Settings, ChevronRight, Activity, MapPin, Clock } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Pedometer } from 'expo-sensors';
+import { Pedometer, Accelerometer } from 'expo-sensors';
 import { registerBackgroundSync } from '../../services/BackgroundSyncService';
 
 const DashboardScreen = ({ navigation }: any) => {
@@ -19,6 +19,8 @@ const DashboardScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [isPedometerAvailable, setIsPedometerAvailable] = useState('checking');
   const [lastSavedSteps, setLastSavedSteps] = useState(0);
+  const [manualSteps, setManualSteps] = useState(0); // For Accelerometer fallback
+  const [isWalking, setIsWalking] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -50,51 +52,50 @@ const DashboardScreen = ({ navigation }: any) => {
   );
 
   useEffect(() => {
-    let subscription: any = null;
+    let pedometerSub: any = null;
+    let accelerometerSub: any = null;
+    let lastStepTime = 0;
 
-    const startPedometer = async () => {
+    const startTracking = async () => {
       try {
+        // 1. Check Pedometer Availability
         const isAvailable = await Pedometer.isAvailableAsync();
         setIsPedometerAvailable(isAvailable ? 'true' : 'false');
-        if (!isAvailable) {
-          console.log('Pedometer NOT available on this hardware');
-          return;
-        }
 
         const { status } = await Pedometer.requestPermissionsAsync();
-        if (status !== 'granted') {
-          setIsPedometerAvailable('false');
-          console.log('Pedometer permission denied');
-          return;
+        if (status === 'granted') {
+          await fetchLiveSteps();
+          pedometerSub = Pedometer.watchStepCount((result) => {
+             if (result.steps > 0) fetchLiveSteps();
+          });
         }
 
-        console.log('Pedometer permission GRANTED. Initializing hardware link...');
-
-        // 1. Initial manual fetch to ensure we aren't starting at zero
-        await fetchLiveSteps();
-
-        // 2. Continuous Native Listening
-        subscription = Pedometer.watchStepCount((result) => {
-          // Optimization: Only re-fetch if we actually moved
-          if (result.steps > 0) {
-            fetchLiveSteps();
-          }
+        // 2. ALWAYS Start Accelerometer Fallback (Zero-Trust Logic)
+        Accelerometer.setUpdateInterval(100);
+        accelerometerSub = Accelerometer.addListener(data => {
+            const magnitude = Math.sqrt(data.x**2 + data.y**2 + data.z**2) * 9.8;
+            
+            // Peak Detection Algorithm for Walking (approx 12-16 m/s^2)
+            const now = Date.now();
+            if (magnitude > 13.5 && now - lastStepTime > 350) { 
+                lastStepTime = now;
+                setManualSteps(prev => prev + 1);
+                setIsWalking(true);
+                setTimeout(() => setIsWalking(false), 2000);
+            }
         });
 
         registerBackgroundSync();
       } catch (error) {
-        console.error('Core Pedometer Failure:', error);
-        setIsPedometerAvailable('false');
+        console.error('Tracking Initialization Error:', error);
       }
     };
 
-    startPedometer();
+    startTracking();
 
     return () => {
-      if (subscription) {
-        subscription.remove();
-        console.log('Pedometer listener disconnected');
-      }
+      if (pedometerSub) pedometerSub.remove();
+      if (accelerometerSub) accelerometerSub.remove();
     };
   }, []);
 
@@ -117,27 +118,30 @@ const DashboardScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     const syncSteps = async () => {
-      if (stepsToday - lastSavedSteps >= 100) {
+      if (displaySteps - lastSavedSteps >= 50) { // Sync more often for manual steps
         try {
           const date = new Date().toISOString().split('T')[0];
-          await client.post('/steps/update', { date, stepCount: stepsToday });
-          setLastSavedSteps(stepsToday);
+          await client.post('/steps/update', { date, stepCount: displaySteps });
+          setLastSavedSteps(displaySteps);
         } catch (error) {
           console.error('Step sync failed', error);
         }
       }
     };
     syncSteps();
-  }, [stepsToday]);
+  }, [displaySteps]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
-  const progress = Math.min((stepsToday / dailyGoal) * 100, 100);
-  const calories = Math.round(stepsToday * 0.04);
-  const distance = (stepsToday * 0.000762).toFixed(2);
+  // FINAL DISPLAY LOGIC: Use Pedometer total + any "new" Manual steps detected this session
+  // This ensures that even if Pedometer is 0, the user see progress.
+  const displaySteps = Math.max(stepsToday, manualSteps);
+  const progress = Math.min((displaySteps / dailyGoal) * 100, 100);
+  const calories = Math.round(displaySteps * 0.04);
+  const distance = (displaySteps * 0.000762).toFixed(2);
 
   const styles = getStyles(colors, typography, progress);
 
@@ -168,9 +172,9 @@ const DashboardScreen = ({ navigation }: any) => {
           <View style={styles.progressRing}>
             <View style={[styles.progressBackground, { height: `${progress}%` }]} />
             <View style={styles.progressContent}>
-              <Footprints size={48} color={isDark ? "#5B5FEF" : "#FF2D55"} /> 
-              <Text style={styles.stepsText}>{stepsToday}</Text>
-              <Text style={styles.stepsLabel}>STEPS</Text>
+              <Footprints size={48} color={isWalking ? colors.success : (isDark ? "#5B5FEF" : "#FF2D55")} /> 
+              <Text style={styles.stepsText}>{displaySteps}</Text>
+              <Text style={styles.stepsLabel}>{isWalking ? 'WALKING...' : 'STEPS'}</Text>
             </View>
           </View>
         </View>
